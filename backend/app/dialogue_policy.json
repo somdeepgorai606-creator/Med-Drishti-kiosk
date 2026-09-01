@@ -1,0 +1,72 @@
+{
+  "version": "1.0",
+  "start_question_id": "chief_complaint",
+  "questions": [
+    {
+      "id": "chief_complaint",
+      "text": "What brings you in today? Please describe your main problem.",
+      "text_hi": "आज आप क्यों आए हैं? अपनी मुख्य समस्या बताएं।",
+      "text_bn": "আজ আপনি কেন এসেছেন? আপনার মূল সমস্যাটি বলুন।",
+      "text_ta": "இன்று ஏன் வந்துள்ளீர்கள்? உங்கள் முக்கிய பிரச்சனையை கூறுங்கள்.",
+      "text_ml": "ഇന്ന് എന്താണ് വന്നിരിക്കുന്നത്? നിങ്ങളുടെ പ്രധാന പ്രശ്നം പറയുക.",
+      "field": "chief_complaint",
+      "next": "duration",
+      "required": true
+    },
+    {
+      "id": "duration",
+      "text": "How long have you had this problem?",
+      "text_hi": "यह समस्या कितने समय से है?",
+      "text_bn": "এই সমস্যাটি কত দিন ধরে আছে?",
+      "text_ta": "இந்த பிரச்சனை எத்தனை நாட்களாக உள்ளது?",
+      "text_ml": "ഈ പ്രശ്നം എത്ര നാളായി ഉണ്ട്?",
+      "field": "hpi_duration",
+      "next": "severity",
+      "required": true
+    },
+    {
+      "id": "severity",
+      "text": "On a scale of 1 to 10, how severe is your discomfort right now? 1 is very mild, 10 is unbearable.",
+      "text_hi": "1 से 10 के पैमाने पर, अभी आपकी तकलीफ कितनी है?",
+      "text_bn": "১ থেকে ১০ এর মধ্যে, এখন আপনার কষ্ট কতটা তীব্র?",
+      "text_ta": "1 முதல் 10 வரை, உங்கள் வலி எவ்வளவு கடுமையாக உள்ளது?",
+      "text_ml": "1 മുതൽ 10 വരെയുള്ള അളവിൽ, നിങ്ങളുടെ ബുദ്ധിമുട്ട് എത്രത്തോളമുണ്ട്?",
+      "field": "hpi_severity",
+      "next": "location",
+      "required": true
+    },
+    {
+      "id": "location",
+      "text": "Where exactly do you feel this discomfort? Point to the area if possible.",
+      "text_hi": "यह तकलीफ ठीक कहाँ है?",
+      "text_bn": "ঠিক কোথায় আপনার এই সমস্যা হচ্ছে?",
+      "text_ta": "இந்த அசௌகரியம் சரியாக எங்கே உணர்கிறீர்கள்?",
+      "text_ml": "എവിടെയാണ് ഈ ബുദ്ധിമുട്ട് അനുഭവപ്പെടുന്നത്?",
+      "field": "hpi_location",
+      "next": "medications",
+      "required": false
+    },
+    {
+      "id": "medications",
+      "text": "Are you currently taking any medications? If yes, please name them.",
+      "text_hi": "क्या आप अभी कोई दवाई ले रहे हैं?",
+      "text_bn": "আপনি কি এখন কোনো ওষুধ খাচ্ছেন?",
+      "text_ta": "நீங்கள் தற்போது ஏதேனும் மருந்துகள் உட்கொள்கிறீர்களா?",
+      "text_ml": "നിങ്ങൾ ഇപ്പോൾ വല്ല മരുന്നുകളും കഴിക്കുന്നുണ്ടോ?",
+      "field": "medications",
+      "next": "allergies",
+      "required": false
+    },
+    {
+      "id": "allergies",
+      "text": "Do you have any known allergies to medicines or food?",
+      "text_hi": "क्या आपको किसी दवाई या खाने से एलर्जी है?",
+      "text_bn": "আপনার কি কোনো ওষুধ বা খাবারে অ্যালার্জি আছে?",
+      "text_ta": "உங்களுக்கு ஏதேனும் மருந்து அல்லது உணவு ஒவ்வாமை உள்ளதா?",
+      "text_ml": "മരുന്നുകളോ ഭക്ഷണങ്ങളോ അലർജിയുണ്ടോ?",
+      "field": "allergies",
+      "next": null,
+      "required": false
+    }
+  ]
+}
