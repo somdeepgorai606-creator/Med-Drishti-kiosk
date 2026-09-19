@@ -66,6 +66,12 @@ export default function WelcomePage() {
                 variant="primary"
                 className="mt-2 w-full max-w-md rounded-[1.5rem] text-xl md:text-2xl"
               />
+              <button
+                onClick={() => router.push('/hospitals')}
+                className="mt-2 w-full max-w-md flex items-center justify-center gap-2 rounded-[1.25rem] border border-[var(--line)] bg-white/80 px-6 py-3 text-base font-bold text-[var(--pulse-teal)] hover:bg-[rgba(31,111,99,0.06)] transition-colors shadow-sm"
+              >
+                🏥 Find Nearby Hospitals
+              </button>
             </div>
 
             <div className="rounded-[1.75rem] border border-[var(--line)] bg-[rgba(255,255,255,0.74)] p-5 shadow-clinical">

@@ -3,6 +3,7 @@ import { Fraunces, IBM_Plex_Sans } from 'next/font/google';
 import './globals.css';
 import { AuthProvider } from '@/lib/auth-context';
 import { LanguageProvider } from '@/lib/language-context';
+import { ChatBot } from '@/components/chatbot/ChatBot';
 
 const fraunces = Fraunces({
   subsets: ['latin'],
@@ -29,9 +30,13 @@ export default function RootLayout({
     <html lang="en">
       <body className={`${fraunces.variable} ${plexSans.variable}`}>
         <AuthProvider>
-          <LanguageProvider>{children}</LanguageProvider>
+          <LanguageProvider>
+            {children}
+            <ChatBot />
+          </LanguageProvider>
         </AuthProvider>
       </body>
     </html>
   );
 }
+

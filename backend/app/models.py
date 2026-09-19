@@ -27,6 +27,14 @@ class RedFlagSeverityEnum(str, enum.Enum):
     CRITICAL = "critical"
 
 
+class MedicalRecordTypeEnum(str, enum.Enum):
+    LAB_REPORT = "lab_report"
+    PRESCRIPTION = "prescription"
+    DISCHARGE_SUMMARY = "discharge_summary"
+    IMAGING = "imaging"
+    OTHER = "other"
+
+
 class User(Base):
     __tablename__ = "users"
     
@@ -60,6 +68,7 @@ class Patient(Base):
     sessions = relationship("ClinicalSession", back_populates="patient")
     consents = relationship("Consent", back_populates="patient")
     audit_logs = relationship("AuditLog", back_populates="patient")
+    medical_records = relationship("MedicalRecord", back_populates="patient")
 
 
 class Consent(Base):
@@ -90,6 +99,7 @@ class ClinicalSession(Base):
     histories = relationship("ClinicalHistory", back_populates="session")
     documents = relationship("Document", back_populates="session")
     red_flags = relationship("RedFlag", back_populates="session")
+    medical_records = relationship("MedicalRecord", back_populates="session")
 
 
 class ClinicalHistory(Base):
@@ -150,6 +160,25 @@ class RedFlag(Base):
     reviewed = Column(Boolean, default=False)
     
     session = relationship("ClinicalSession", back_populates="red_flags")
+
+
+class MedicalRecord(Base):
+    __tablename__ = "medical_records"
+
+    id = Column(Integer, primary_key=True, index=True)
+    patient_id = Column(Integer, ForeignKey("patients.id"), nullable=False)
+    session_id = Column(Integer, ForeignKey("clinical_sessions.id"), nullable=True)
+    record_type = Column(SQLEnum(MedicalRecordTypeEnum), default=MedicalRecordTypeEnum.OTHER)
+    title = Column(String, nullable=True)  # e.g. "X-Ray Report 2024"
+    description = Column(Text, nullable=True)  # Free-text notes
+    file_name = Column(String, nullable=True)
+    file_type = Column(String, nullable=True)
+    file_path = Column(String, nullable=True)  # Local/S3 path
+    ocr_text = Column(Text, nullable=True)
+    uploaded_at = Column(DateTime, default=datetime.utcnow)
+
+    patient = relationship("Patient", back_populates="medical_records")
+    session = relationship("ClinicalSession", back_populates="medical_records")
 
 
 class AuditLog(Base):

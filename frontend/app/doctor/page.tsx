@@ -5,13 +5,15 @@ import { KioskWrapper } from '@/components/layout/KioskWrapper';
 import { ClinicalSummaryCard } from '@/components/summary/ClinicalSummaryCard';
 import { DocumentUploader } from '@/components/documents/DocumentUploader';
 import { BigButton } from '@/components/ui/BigButton';
-import { getDoctorQueue, getSessionSummary, verifySession, getSessionAuditLogs } from '@/lib/api';
+import { getDoctorQueue, getSessionSummary, verifySession, getSessionAuditLogs, getPatientMedicalRecords, getMedicalRecordFileUrl, MedicalRecordResponse } from '@/lib/api';
 
 export default function DoctorDashboardPage() {
   const [queue, setQueue] = useState<any[]>([]);
   const [selectedSessionId, setSelectedSessionId] = useState<number | null>(null);
   const [summaryData, setSummaryData] = useState<any | null>(null);
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
+  const [medicalRecords, setMedicalRecords] = useState<MedicalRecordResponse[]>([]);
+  const [showMedicalRecords, setShowMedicalRecords] = useState(true);
   const [loadingQueue, setLoadingQueue] = useState(true);
   const [loadingSession, setLoadingSession] = useState(false);
   const [verifying, setVerifying] = useState(false);
@@ -58,6 +60,17 @@ export default function DoctorDashboardPage() {
 
       const logs = await getSessionAuditLogs(sessionId);
       setAuditLogs(logs);
+
+      // Fetch medical records for the patient
+      if (summary?.patient?.id) {
+        try {
+          const records = await getPatientMedicalRecords(summary.patient.id);
+          setMedicalRecords(records);
+        } catch (err) {
+          console.error('Error loading medical records:', err);
+          setMedicalRecords([]);
+        }
+      }
     } catch (err) {
       console.error('Error loading session details:', err);
     } finally {
@@ -196,6 +209,11 @@ export default function DoctorDashboardPage() {
                     <div className="flex items-center justify-between text-xs text-slate-500">
                       <span>
                         Session #{item.session_id} • {item.patient_gender || 'N/A'}
+                        {item.medical_records_count > 0 && (
+                          <span className="ml-1 inline-flex items-center bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded text-[10px] font-bold">
+                            📋 {item.medical_records_count}
+                          </span>
+                        )}
                       </span>
                       <span
                         className={`font-bold capitalize ${
@@ -233,6 +251,85 @@ export default function DoctorDashboardPage() {
                   sessionId={selectedSessionId}
                   onUploadSuccess={() => loadSessionDetails(selectedSessionId)}
                 />
+
+                {/* Patient Medical History Records */}
+                {medicalRecords.length > 0 && (
+                  <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-lg flex flex-col gap-4">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-xl font-extrabold text-slate-800 flex items-center gap-2">
+                        📋 Patient Medical History ({medicalRecords.length})
+                      </h3>
+                      <button
+                        onClick={() => setShowMedicalRecords(!showMedicalRecords)}
+                        className="text-xs font-bold text-[var(--pulse-teal)] hover:underline"
+                      >
+                        {showMedicalRecords ? 'Collapse ▲' : 'Expand ▼'}
+                      </button>
+                    </div>
+
+                    {showMedicalRecords && (
+                      <div className="flex flex-col gap-3">
+                        {medicalRecords.map((rec) => {
+                          const typeLabels: Record<string, { emoji: string; label: string; cls: string }> = {
+                            lab_report: { emoji: '🧪', label: 'Lab Report', cls: 'bg-blue-50 border-blue-200 text-blue-800' },
+                            prescription: { emoji: '💊', label: 'Prescription', cls: 'bg-purple-50 border-purple-200 text-purple-800' },
+                            discharge_summary: { emoji: '🏥', label: 'Discharge', cls: 'bg-amber-50 border-amber-200 text-amber-800' },
+                            imaging: { emoji: '📷', label: 'Imaging', cls: 'bg-teal-50 border-teal-200 text-teal-800' },
+                            other: { emoji: '📋', label: 'Other', cls: 'bg-slate-50 border-slate-200 text-slate-800' },
+                          };
+                          const typeInfo = typeLabels[rec.record_type] || typeLabels.other;
+
+                          return (
+                            <div
+                              key={rec.id}
+                              className="p-4 bg-slate-50 border border-slate-200 rounded-2xl flex flex-col gap-2"
+                            >
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                  <span className={`px-2.5 py-1 rounded-lg border text-[10px] font-bold ${typeInfo.cls}`}>
+                                    {typeInfo.emoji} {typeInfo.label}
+                                  </span>
+                                  <span className="font-bold text-slate-900 text-sm">
+                                    {rec.title || rec.file_name}
+                                  </span>
+                                </div>
+                                {rec.file_name && (
+                                  <a
+                                    href={getMedicalRecordFileUrl(rec.id)}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-xs font-bold text-[var(--pulse-teal)] hover:underline flex items-center gap-1"
+                                  >
+                                    📎 View File
+                                  </a>
+                                )}
+                              </div>
+
+                              {rec.description && (
+                                <p className="text-xs text-slate-600 font-medium">
+                                  <span className="font-bold text-slate-500">Notes:</span> {rec.description}
+                                </p>
+                              )}
+
+                              {rec.ocr_text && (
+                                <div className="bg-white p-3 border border-slate-200 rounded-xl">
+                                  <span className="text-[10px] font-bold text-slate-400 uppercase">OCR Extracted Text</span>
+                                  <p className="text-xs font-mono text-slate-600 mt-1 line-clamp-3">
+                                    {rec.ocr_text}
+                                  </p>
+                                </div>
+                              )}
+
+                              <span className="text-[10px] text-slate-400 font-medium">
+                                Uploaded: {new Date(rec.uploaded_at).toLocaleString()}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* Physician Verification & Review Form */}
                 <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-xl flex flex-col gap-6">

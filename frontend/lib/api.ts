@@ -305,4 +305,60 @@ export async function getSessionAuditLogs(
   return data;
 }
 
+// ── Medical Record API functions ─────────────────────────────────────────────
+export interface MedicalRecordResponse {
+  id: number;
+  patient_id: number;
+  session_id?: number;
+  record_type: string;
+  title?: string;
+  description?: string;
+  file_name?: string;
+  file_type?: string;
+  ocr_text?: string;
+  uploaded_at: string;
+}
 
+export async function uploadMedicalRecord(
+  patientId: number | string,
+  file: File,
+  title: string,
+  description: string,
+  recordType: string = 'other',
+  sessionId?: number | string
+): Promise<MedicalRecordResponse> {
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('title', title);
+  formData.append('description', description);
+  formData.append('record_type', recordType);
+  if (sessionId) formData.append('session_id', String(sessionId));
+  const { data } = await apiClient.post<MedicalRecordResponse>(
+    `/api/v1/patients/${patientId}/medical-records`,
+    formData,
+    { headers: { 'Content-Type': 'multipart/form-data' } }
+  );
+  return data;
+}
+
+export async function getPatientMedicalRecords(
+  patientId: number | string
+): Promise<MedicalRecordResponse[]> {
+  const { data } = await apiClient.get<MedicalRecordResponse[]>(
+    `/api/v1/patients/${patientId}/medical-records`
+  );
+  return data;
+}
+
+export function getMedicalRecordFileUrl(recordId: number | string): string {
+  return `${API_BASE_URL}/api/v1/medical-records/${recordId}/file`;
+}
+
+export async function deleteMedicalRecord(
+  recordId: number | string
+): Promise<any> {
+  const { data } = await apiClient.delete(
+    `/api/v1/medical-records/${recordId}`
+  );
+  return data;
+}

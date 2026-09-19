@@ -149,6 +149,50 @@ export const ClinicalSummaryCard: React.FC<ClinicalSummaryCardProps> = ({
         </div>
       )}
 
+      {/* Past Medical Records */}
+      {summaryData?.medical_records?.length > 0 && (
+        <div className="flex flex-col gap-3">
+          <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+            📋 Past Medical Records ({summaryData.medical_records.length})
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {summaryData.medical_records.map((rec: any) => {
+              const typeLabels: Record<string, string> = {
+                lab_report: '🧪 Lab Report',
+                prescription: '💊 Prescription',
+                discharge_summary: '🏥 Discharge',
+                imaging: '📷 Imaging',
+                other: '📋 Other',
+              };
+
+              return (
+                <div
+                  key={rec.id}
+                  className="p-4 bg-slate-50 rounded-2xl border border-slate-200 flex flex-col gap-1.5"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-bold text-slate-500 uppercase bg-slate-100 px-2 py-0.5 rounded">
+                      {typeLabels[rec.record_type] || '📋 Other'}
+                    </span>
+                    <span className="text-sm font-bold text-slate-800">
+                      {rec.title || rec.file_name}
+                    </span>
+                  </div>
+                  {rec.description && (
+                    <p className="text-xs text-slate-600">{rec.description}</p>
+                  )}
+                  {rec.ocr_text && (
+                    <p className="text-xs font-mono text-slate-500 italic line-clamp-2">
+                      &quot;{rec.ocr_text.substring(0, 150)}{rec.ocr_text.length > 150 ? '...' : ''}&quot;
+                    </p>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Traceability Modal */}
       {selectedEntityTrace && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">

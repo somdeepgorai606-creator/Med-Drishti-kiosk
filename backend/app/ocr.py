@@ -44,8 +44,48 @@ def preprocess_image(image_path: str) -> Optional[Any]:
         return None
 
 
+# Try importing TrOCR / Transformers for fine-tuned Kaggle model support
+try:
+    from transformers import TrOCRProcessor, VisionEncoderDecoderModel
+    HAS_TRANSFORMERS = True
+except ImportError:
+    HAS_TRANSFORMERS = False
+
+CUSTOM_OCR_MODEL_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "models", "trocr_medical")
+_custom_trocr_model = None
+_custom_trocr_processor = None
+
+def get_custom_ocr_model():
+    """Lazy load fine-tuned TrOCR model from Kaggle output if present."""
+    global _custom_trocr_model, _custom_trocr_processor
+    if HAS_TRANSFORMERS and os.path.exists(CUSTOM_OCR_MODEL_PATH):
+        if _custom_trocr_model is None:
+            try:
+                logger.info(f"Loading custom fine-tuned TrOCR model from {CUSTOM_OCR_MODEL_PATH}")
+                _custom_trocr_processor = TrOCRProcessor.from_pretrained(CUSTOM_OCR_MODEL_PATH)
+                _custom_trocr_model = VisionEncoderDecoderModel.from_pretrained(CUSTOM_OCR_MODEL_PATH)
+            except Exception as e:
+                logger.error(f"Failed to load custom TrOCR model: {e}")
+        return _custom_trocr_model, _custom_trocr_processor
+    return None, None
+
+
 def extract_ocr_text(file_path: str) -> str:
-    """Extract raw text from image or fallback mock."""
+    """Extract raw text using custom fine-tuned TrOCR model, pytesseract, or fallback mock."""
+    # 1. Check for custom fine-tuned Kaggle TrOCR model
+    model, processor = get_custom_ocr_model()
+    if model and processor and HAS_PIL and file_path.lower().endswith(('.png', '.jpg', '.jpeg', '.tiff', '.bmp')):
+        try:
+            image = Image.open(file_path).convert("RGB")
+            pixel_values = processor(image, return_tensors="pt").pixel_values
+            generated_ids = model.generate(pixel_values)
+            text = processor.batch_decode(generated_ids, skip_special_tokens=True)[0]
+            if text.strip():
+                return text.strip()
+        except Exception as e:
+            logger.warning(f"Custom TrOCR inference failed: {e}. Falling back to standard OCR.")
+
+    # 2. Fallback to pytesseract if installed
     if HAS_TESSERACT and HAS_PIL and file_path.lower().endswith(('.png', '.jpg', '.jpeg', '.tiff', '.bmp')):
         try:
             processed_img = preprocess_image(file_path)

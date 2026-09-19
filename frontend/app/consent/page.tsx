@@ -50,7 +50,7 @@ export default function ConsentPage() {
     <KioskWrapper>
       <div className="w-full flex flex-col items-center gap-6">
         <ProgressStepper
-          steps={[t.stepLanguage, t.stepRegister, t.stepConsent, t.stepIntake]}
+          steps={[t.stepLanguage, t.stepRegister, t.stepConsent, t.stepIntake, 'Records']}
           currentStep={2}
         />
 

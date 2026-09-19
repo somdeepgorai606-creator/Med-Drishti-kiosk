@@ -39,7 +39,7 @@ export default function IntakePage() {
       if (res.done) {
         // Dialogue flow complete! Save ClinicalHistory
         await saveHistory();
-        router.push('/done');
+        router.push('/medical-history');
         return;
       }
 
@@ -89,7 +89,7 @@ export default function IntakePage() {
     <KioskWrapper>
       <div className="w-full flex flex-col items-center gap-6">
         <ProgressStepper
-          steps={['Language', 'Register', 'Consent', 'Intake']}
+          steps={['Language', 'Register', 'Consent', 'Intake', 'Records']}
           currentStep={3}
         />
 

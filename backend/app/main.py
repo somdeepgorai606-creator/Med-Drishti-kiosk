@@ -1,6 +1,9 @@
 import json
+import io
 import os
+import uuid
 from fastapi import FastAPI, HTTPException, Depends, Header, UploadFile, File, Form
+from fastapi.responses import Response, StreamingResponse, FileResponse
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
 from typing import Optional
@@ -12,6 +15,8 @@ from . import voice as voice_module
 from . import ocr as ocr_module
 from . import summary as summary_module
 from . import red_flag_engine
+from . import chatbot as chatbot_module
+from . import hospitals as hospitals_module
 
 
 app = FastAPI(
@@ -428,9 +433,6 @@ def get_consents(
     return consents
 
 
-from fastapi.responses import Response, StreamingResponse
-import io
-
 # ============ Voice Endpoints ============
 
 _POLICY_PATH = os.path.join(os.path.dirname(__file__), "dialogue_policy.json")
@@ -623,6 +625,120 @@ def get_session_documents(
     return session.documents
 
 
+# ============ Medical Record Endpoints ============
+@app.post("/api/v1/patients/{patient_id}/medical-records", response_model=schemas.MedicalRecordResponse)
+async def upload_medical_record(
+    patient_id: int,
+    file: UploadFile = File(...),
+    title: str = Form(default=""),
+    description: str = Form(default=""),
+    record_type: str = Form(default="other"),
+    session_id: Optional[int] = Form(default=None),
+    current_user: Optional[models.User] = Depends(get_current_user_optional),
+    db: Session = Depends(get_db)
+):
+    """Upload an old medical record (image, PDF, report) for a patient."""
+    patient = db.query(models.Patient).filter(models.Patient.id == patient_id).first()
+    if not patient:
+        raise HTTPException(status_code=404, detail="Patient not found")
+
+    # Save file locally
+    upload_dir = os.path.join(os.path.dirname(__file__), "..", "uploads", "medical_records")
+    os.makedirs(upload_dir, exist_ok=True)
+    unique_name = f"{patient_id}_{uuid.uuid4().hex[:8]}_{file.filename}"
+    file_path = os.path.join(upload_dir, unique_name)
+
+    file_bytes = await file.read()
+    with open(file_path, "wb") as f:
+        f.write(file_bytes)
+
+    # Run OCR if it's an image/PDF
+    ocr_text = ""
+    try:
+        ocr_text = ocr_module.extract_ocr_text(file_path)
+    except Exception as e:
+        print(f"[OCR Warning] Could not extract text from medical record: {e}")
+
+    # Map record type string to enum
+    try:
+        rec_type = models.MedicalRecordTypeEnum(record_type)
+    except ValueError:
+        rec_type = models.MedicalRecordTypeEnum.OTHER
+
+    record = models.MedicalRecord(
+        patient_id=patient_id,
+        session_id=session_id,
+        record_type=rec_type,
+        title=title.strip() if title else file.filename,
+        description=description.strip() if description else None,
+        file_name=file.filename,
+        file_type=file.content_type or "application/octet-stream",
+        file_path=file_path,
+        ocr_text=ocr_text,
+    )
+    db.add(record)
+    db.commit()
+    db.refresh(record)
+    return record
+
+
+@app.get("/api/v1/patients/{patient_id}/medical-records", response_model=list[schemas.MedicalRecordResponse])
+def get_patient_medical_records(
+    patient_id: int,
+    current_user: Optional[models.User] = Depends(get_current_user_optional),
+    db: Session = Depends(get_db)
+):
+    """List all medical records for a patient."""
+    patient = db.query(models.Patient).filter(models.Patient.id == patient_id).first()
+    if not patient:
+        raise HTTPException(status_code=404, detail="Patient not found")
+
+    records = db.query(models.MedicalRecord).filter(
+        models.MedicalRecord.patient_id == patient_id
+    ).order_by(models.MedicalRecord.uploaded_at.desc()).all()
+    return records
+
+
+@app.get("/api/v1/medical-records/{record_id}/file")
+def get_medical_record_file(
+    record_id: int,
+    current_user: Optional[models.User] = Depends(get_current_user_optional),
+    db: Session = Depends(get_db)
+):
+    """Download / view the uploaded medical record file."""
+    record = db.query(models.MedicalRecord).filter(models.MedicalRecord.id == record_id).first()
+    if not record:
+        raise HTTPException(status_code=404, detail="Medical record not found")
+    if not record.file_path or not os.path.exists(record.file_path):
+        raise HTTPException(status_code=404, detail="File not found on disk")
+
+    return FileResponse(
+        path=record.file_path,
+        filename=record.file_name,
+        media_type=record.file_type or "application/octet-stream",
+    )
+
+
+@app.delete("/api/v1/medical-records/{record_id}", status_code=200)
+def delete_medical_record(
+    record_id: int,
+    current_user: Optional[models.User] = Depends(get_current_user_optional),
+    db: Session = Depends(get_db)
+):
+    """Delete a medical record."""
+    record = db.query(models.MedicalRecord).filter(models.MedicalRecord.id == record_id).first()
+    if not record:
+        raise HTTPException(status_code=404, detail="Medical record not found")
+
+    # Remove file from disk
+    if record.file_path and os.path.exists(record.file_path):
+        os.remove(record.file_path)
+
+    db.delete(record)
+    db.commit()
+    return {"message": "Medical record deleted", "id": record_id}
+
+
 # ============ Summary Generator Endpoints (Phase 5) ============
 @app.get("/api/v1/sessions/{session_id}/summary")
 def get_session_summary(
@@ -683,12 +799,30 @@ def get_session_summary(
         for rf in session.red_flags
     ]
 
-    return summary_module.generate_clinical_summary(
+    # Collect medical records for the patient
+    medical_records_list = [
+        {
+            "id": mr.id,
+            "record_type": mr.record_type.value if mr.record_type else "other",
+            "title": mr.title,
+            "description": mr.description,
+            "file_name": mr.file_name,
+            "ocr_text": mr.ocr_text,
+            "uploaded_at": mr.uploaded_at.isoformat() if mr.uploaded_at else None
+        }
+        for mr in session.patient.medical_records
+    ]
+
+    summary = summary_module.generate_clinical_summary(
         patient=patient_dict,
         history=history_dict,
         documents=docs_list,
         red_flags=red_flags_list
     )
+
+    # Attach medical records to the summary response
+    summary["medical_records"] = medical_records_list
+    return summary
 
 
 # ============ Red-Flag Engine & Triage Endpoints (Phase 6) ============
@@ -746,7 +880,8 @@ def get_doctor_queue(
             "completed_at": s.completed_at,
             "triage_status": triage_status,
             "red_flags_count": len(red_flags),
-            "documents_count": len(s.documents)
+            "documents_count": len(s.documents),
+            "medical_records_count": len(s.patient.medical_records)
         })
 
     # Sort critical first, then active, then timestamp
@@ -814,3 +949,56 @@ def get_session_audit_logs(
     return logs
 
 
+# ============ Sarvam AI Chatbot Endpoint ============
+
+class ChatMessage(schemas.BaseModel):
+    role: str  # 'user' or 'assistant'
+    content: str
+
+class ChatRequest(schemas.BaseModel):
+    messages: list[ChatMessage]
+    language: str = "en"
+
+class ChatResponse(schemas.BaseModel):
+    reply: str
+    language: str
+
+@app.post("/api/v1/chat", response_model=ChatResponse)
+def patient_chat(
+    payload: ChatRequest,
+):
+    """Sarvam AI powered patient health assistant chatbot."""
+    messages_dicts = [{"role": m.role, "content": m.content} for m in payload.messages]
+    result = chatbot_module.get_chat_response(messages_dicts, language=payload.language)
+    return ChatResponse(reply=result["reply"], language=result["language"])
+
+
+# ============ Hospital Finder Endpoints ============
+
+@app.get("/api/v1/hospitals/nearby")
+def get_nearby_hospitals(
+    lat: float,
+    lng: float,
+    radius_km: float = 50.0,
+    limit: int = 10,
+    hospital_type: Optional[str] = None,
+):
+    """Find hospitals near a given latitude/longitude (Haversine search)."""
+    results = hospitals_module.get_nearby_hospitals(
+        lat=lat, lng=lng, radius_km=radius_km, limit=limit, hospital_type=hospital_type
+    )
+    return {"hospitals": results, "count": len(results)}
+
+
+@app.get("/api/v1/hospitals")
+def list_hospitals(state: Optional[str] = None):
+    """List all hospitals, optionally filtered by state."""
+    results = hospitals_module.get_all_hospitals(state=state)
+    return {"hospitals": results, "count": len(results)}
+
+
+@app.get("/api/v1/hospitals/search")
+def search_hospitals(q: str):
+    """Full-text search hospitals by name, city, state, or specialty."""
+    results = hospitals_module.search_hospitals(query=q)
+    return {"hospitals": results, "count": len(results)}

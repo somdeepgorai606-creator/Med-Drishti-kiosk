@@ -24,6 +24,14 @@ class RedFlagSeverityEnum(str, Enum):
     CRITICAL = "critical"
 
 
+class MedicalRecordTypeEnum(str, Enum):
+    LAB_REPORT = "lab_report"
+    PRESCRIPTION = "prescription"
+    DISCHARGE_SUMMARY = "discharge_summary"
+    IMAGING = "imaging"
+    OTHER = "other"
+
+
 # Auth Schemas
 class UserRegister(BaseModel):
     email: EmailStr
@@ -255,6 +263,7 @@ class DoctorQueueItemResponse(BaseModel):
     triage_status: str
     red_flags_count: int
     documents_count: int
+    medical_records_count: int = 0
 
     class Config:
         orm_mode = True
@@ -278,6 +287,23 @@ class AuditLogResponse(BaseModel):
     resource_id: Optional[int] = None
     timestamp: datetime
     details: Optional[str] = None
+
+    class Config:
+        orm_mode = True
+
+
+# Medical Record Schemas
+class MedicalRecordResponse(BaseModel):
+    id: int
+    patient_id: int
+    session_id: Optional[int] = None
+    record_type: MedicalRecordTypeEnum = MedicalRecordTypeEnum.OTHER
+    title: Optional[str] = None
+    description: Optional[str] = None
+    file_name: Optional[str] = None
+    file_type: Optional[str] = None
+    ocr_text: Optional[str] = None
+    uploaded_at: datetime
 
     class Config:
         orm_mode = True

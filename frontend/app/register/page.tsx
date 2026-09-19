@@ -105,7 +105,7 @@ export default function RegisterPage() {
     <KioskWrapper>
       <div className="w-full max-w-3xl">
         <ProgressStepper
-          steps={[t.stepLanguage, t.stepRegister, t.stepConsent, t.stepIntake]}
+          steps={[t.stepLanguage, t.stepRegister, t.stepConsent, t.stepIntake, 'Records']}
           currentStep={1}
         />
 
